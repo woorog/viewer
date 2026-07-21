@@ -39,13 +39,10 @@ class _BrowserPageState extends State<BrowserPage> {
     await RecentBookService.load();
 
     // 기본 URL
-    _startUrl =
-        widget.initialUrl ??
-            await SettingsService.getDefaultUrl();
+    _startUrl = widget.initialUrl ?? await SettingsService.getDefaultUrl();
 
     // 다크모드
-    isDarkMode =
-    await SettingsService.getDarkMode();
+    isDarkMode = await SettingsService.getDarkMode();
 
     setState(() {
       _initialized = true;
@@ -172,53 +169,68 @@ class _BrowserPageState extends State<BrowserPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      body: SafeArea(
-        child: InAppWebView(
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            userAgent:
-                "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
-          ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
 
-          initialUrlRequest: URLRequest(url: WebUri(_startUrl)),
+        if (webViewController != null && await webViewController!.canGoBack()) {
+          await webViewController!.goBack();
+        } else {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+        }
+      },
 
-          onWebViewCreated: (controller) {
-            webViewController = controller;
-          },
+      child: Scaffold(
+        body: SafeArea(
+          child: InAppWebView(
+            initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              userAgent:
+                  "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
+            ),
 
-          onLoadStop: (controller, url) async {
-            // 상단 배너 제거
-            await controller.evaluateJavascript(
-              source: """
+            initialUrlRequest: URLRequest(url: WebUri(_startUrl)),
+
+            onWebViewCreated: (controller) {
+              webViewController = controller;
+            },
+
+            onLoadStop: (controller, url) async {
+              // 상단 배너 제거
+              await controller.evaluateJavascript(
+                source: """
 document.getElementById('main-banner-view')
     ?.style.setProperty('display','none','important');
 """,
-            );
+              );
 
-            // 다크모드 적용
-            if (isDarkMode && webViewController != null) {
-              await ReaderTheme.apply(webViewController!);
-            }
+              // 다크모드 적용
+              if (isDarkMode && webViewController != null) {
+                await ReaderTheme.apply(webViewController!);
+              }
 
-            // 작품 정보 저장
-            final book = await NovelParser.parse(controller, url);
+              // 작품 정보 저장
+              final book = await NovelParser.parse(controller, url);
 
-            if (book != null) {
-              await RecentBookService.save(book);
-            }
-          },
+              if (book != null) {
+                await RecentBookService.save(book);
+              }
+            },
+          ),
         ),
-      ),
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
 
-      floatingActionButton: FloatingActionButton.small(
-        heroTag: "settings",
-        backgroundColor: Colors.black.withOpacity(0.45),
-        elevation: 0,
-        onPressed: _showSettings,
-        child: const Icon(Icons.settings),
+        floatingActionButton: FloatingActionButton.small(
+          heroTag: "settings",
+          backgroundColor: Colors.black.withOpacity(0.45),
+          elevation: 0,
+          onPressed: _showSettings,
+          child: const Icon(Icons.settings),
+        ),
       ),
     );
   }
