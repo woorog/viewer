@@ -206,8 +206,6 @@ document.getElementById('main-banner-view')
 
             if (book != null) {
               await RecentBookService.save(book);
-
-              debugPrint("최근 본 책 저장 : ${book.title} ${book.episode}");
             }
           },
         ),
