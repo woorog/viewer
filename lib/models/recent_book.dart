@@ -2,31 +2,40 @@ class RecentBook {
   final String title;
   final String episode;
   final String url;
+
+  final String thumbnail;
+  final String site;
+
   final DateTime lastRead;
 
-  const RecentBook({
+  RecentBook({
     required this.title,
     required this.episode,
     required this.url,
     required this.lastRead,
+    this.thumbnail = "",
+    this.site = "",
   });
 
-  RecentBook copyWith({
-    String? title,
-    String? episode,
-    String? url,
-    DateTime? lastRead,
-  }) {
-    return RecentBook(
-      title: title ?? this.title,
-      episode: episode ?? this.episode,
-      url: url ?? this.url,
-      lastRead: lastRead ?? this.lastRead,
-    );
+  Map<String, dynamic> toJson() {
+    return {
+      "title": title,
+      "episode": episode,
+      "url": url,
+      "thumbnail": thumbnail,
+      "site": site,
+      "lastRead": lastRead.toIso8601String(),
+    };
   }
 
-  @override
-  String toString() {
-    return 'RecentBook(title: $title, episode: $episode, url: $url)';
+  factory RecentBook.fromJson(Map<String, dynamic> json) {
+    return RecentBook(
+      title: json["title"] ?? "",
+      episode: json["episode"] ?? "",
+      url: json["url"] ?? "",
+      thumbnail: json["thumbnail"] ?? "",
+      site: json["site"] ?? "",
+      lastRead: DateTime.parse(json["lastRead"]),
+    );
   }
 }

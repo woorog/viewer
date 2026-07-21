@@ -1,23 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import '../services/reader_theme.dart';
-import '../widgets/settings_sheet.dart';
-import 'recent_books_page.dart';
-
+import '../pages/recent_books_page.dart';
 
 import '../services/novel_parser.dart';
+import '../services/reader_theme.dart';
 import '../services/recent_book_service.dart';
+import '../services/settings_service.dart';
 
-
+import '../widgets/settings_sheet.dart';
 
 class BrowserPage extends StatefulWidget {
   final String? initialUrl;
 
-  const BrowserPage({
-    super.key,
-    this.initialUrl,
-  });
+  const BrowserPage({super.key, this.initialUrl});
 
   @override
   State<BrowserPage> createState() => _BrowserPageState();
@@ -27,6 +23,94 @@ class _BrowserPageState extends State<BrowserPage> {
   InAppWebViewController? webViewController;
 
   bool isDarkMode = false;
+
+  String _startUrl = "https://www.google.com";
+
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    // 최근 본 책 불러오기
+    await RecentBookService.load();
+
+    // 기본 URL
+    _startUrl =
+        widget.initialUrl ??
+            await SettingsService.getDefaultUrl();
+
+    // 다크모드
+    isDarkMode =
+    await SettingsService.getDarkMode();
+
+    setState(() {
+      _initialized = true;
+    });
+  }
+
+  Future<void> _changeDefaultUrl() async {
+    final controller = TextEditingController(
+      text: await SettingsService.getDefaultUrl(),
+    );
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("기본 URL"),
+
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(hintText: "https://example.com"),
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("취소"),
+            ),
+
+            FilledButton(
+              onPressed: () async {
+                final url = controller.text.trim();
+
+                if (url.isEmpty) return;
+
+                await SettingsService.saveDefaultUrl(url);
+
+                setState(() {
+                  _startUrl = url;
+                });
+
+                Navigator.pop(context);
+
+                if (webViewController != null) {
+                  await webViewController!.loadUrl(
+                    urlRequest: URLRequest(url: WebUri(url)),
+                  );
+                }
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("기본 URL이 저장되었습니다.")),
+                );
+              },
+              child: const Text("저장"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showSettings() {
     showModalBottomSheet(
@@ -42,6 +126,8 @@ class _BrowserPageState extends State<BrowserPage> {
                 setState(() {
                   isDarkMode = value;
                 });
+
+                await SettingsService.saveDarkMode(value);
 
                 setSheetState(() {});
 
@@ -59,18 +145,19 @@ class _BrowserPageState extends State<BrowserPage> {
 
                 final String? selectedUrl = await Navigator.push<String>(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const RecentBooksPage(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const RecentBooksPage()),
                 );
 
                 if (selectedUrl != null && webViewController != null) {
                   await webViewController!.loadUrl(
-                    urlRequest: URLRequest(
-                      url: WebUri(selectedUrl),
-                    ),
+                    urlRequest: URLRequest(url: WebUri(selectedUrl)),
                   );
                 }
+              },
+
+              onChangeDefaultUrl: () {
+                Navigator.pop(context);
+                _changeDefaultUrl();
               },
             );
           },
@@ -81,28 +168,31 @@ class _BrowserPageState extends State<BrowserPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       body: SafeArea(
         child: InAppWebView(
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
             userAgent:
-            "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
+                "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
           ),
-          initialUrlRequest: URLRequest(
-            url: WebUri(
-              widget.initialUrl ?? "https://www.google.com",
-            ),
-          ),
+
+          initialUrlRequest: URLRequest(url: WebUri(_startUrl)),
+
           onWebViewCreated: (controller) {
             webViewController = controller;
           },
+
           onLoadStop: (controller, url) async {
             // 상단 배너 제거
             await controller.evaluateJavascript(
               source: """
 document.getElementById('main-banner-view')
-    ?.style.setProperty('display', 'none', 'important');
+    ?.style.setProperty('display','none','important');
 """,
             );
 
@@ -111,34 +201,19 @@ document.getElementById('main-banner-view')
               await ReaderTheme.apply(webViewController!);
             }
 
-            // 현재 작품 정보 읽기
+            // 작품 정보 저장
             final book = await NovelParser.parse(controller, url);
 
             if (book != null) {
-              print("===== 저장 시작 =====");
-              print("제목 : ${book.title}");
-              print("화수 : ${book.episode}");
-
               await RecentBookService.save(book);
 
-              print("저장 완료");
-              print("현재 저장 개수 : ${RecentBookService.getBooks().length}");
-
-              // 저장된 목록 확인
-              for (final b in RecentBookService.getBooks()) {
-                print("${b.title} / ${b.episode}");
-              }
-
-              print("====================");
-            } else {
-              print("❌ NovelParser가 null을 반환했습니다.");
+              debugPrint("최근 본 책 저장 : ${book.title} ${book.episode}");
             }
           },
         ),
       ),
 
-      floatingActionButtonLocation:
-      FloatingActionButtonLocation.startFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
 
       floatingActionButton: FloatingActionButton.small(
         heroTag: "settings",
