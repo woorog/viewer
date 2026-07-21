@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class SettingsSheet extends StatelessWidget {
   final bool isDarkMode;
   final ValueChanged<bool> onDarkModeChanged;
+  final VoidCallback onRecentBooks;
 
   const SettingsSheet({
     super.key,
     required this.isDarkMode,
     required this.onDarkModeChanged,
+    required this.onRecentBooks,
   });
 
   @override
@@ -36,6 +38,16 @@ class SettingsSheet extends StatelessWidget {
                 onChanged: onDarkModeChanged,
               ),
             ),
+
+            const Divider(),
+
+            ListTile(
+              leading: const Icon(Icons.menu_book),
+              title: const Text("최근 본 책"),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: onRecentBooks,
+            ),
+
           ],
         ),
       ),
