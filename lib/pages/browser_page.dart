@@ -14,16 +14,22 @@ class _BrowserPageState extends State<BrowserPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Viewer"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("Viewer"), centerTitle: true),
       body: InAppWebView(
-        initialUrlRequest: URLRequest(
-          url: WebUri("https://www.google.com"),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          userAgent:
+              "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
         ),
+        initialUrlRequest: URLRequest(url: WebUri("https://www.google.com")),
         onWebViewCreated: (controller) {
           webViewController = controller;
+        },
+        onLoadStop: (controller, url) async {
+          await controller.evaluateJavascript(source: """
+    document.getElementById('main-banner-view')
+      ?.style.setProperty('display', 'none', 'important');
+  """);
         },
       ),
     );
