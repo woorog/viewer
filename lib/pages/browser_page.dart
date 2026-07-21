@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../services/reader_theme.dart';
 import '../widgets/settings_sheet.dart';
 
 class BrowserPage extends StatefulWidget {
@@ -14,41 +15,6 @@ class _BrowserPageState extends State<BrowserPage> {
   InAppWebViewController? webViewController;
 
   bool isDarkMode = false;
-
-  Future<void> _applyReaderTheme() async {
-    if (webViewController == null) return;
-
-    await webViewController!.evaluateJavascript(
-      source: """
-(function () {
-  let style = document.getElementById("viewer-dark-theme");
-
-  if (!style) {
-    style = document.createElement("style");
-    style.id = "viewer-dark-theme";
-    document.head.appendChild(style);
-  }
-
-  style.innerHTML = `
-    html, body {
-      background:#111 !important;
-      color:#EEE !important;
-    }
-  `;
-})();
-""",
-    );
-  }
-
-  Future<void> _removeReaderTheme() async {
-    if (webViewController == null) return;
-
-    await webViewController!.evaluateJavascript(
-      source: """
-document.getElementById("viewer-dark-theme")?.remove();
-""",
-    );
-  }
 
   void _showSettings() {
     showModalBottomSheet(
@@ -66,10 +32,12 @@ document.getElementById("viewer-dark-theme")?.remove();
 
                 setSheetState(() {});
 
+                if (webViewController == null) return;
+
                 if (value) {
-                  await _applyReaderTheme();
+                  await ReaderTheme.apply(webViewController!);
                 } else {
-                  await _removeReaderTheme();
+                  await ReaderTheme.remove(webViewController!);
                 }
               },
             );
@@ -82,40 +50,46 @@ document.getElementById("viewer-dark-theme")?.remove();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Viewer"),
-        centerTitle: true,
-        backgroundColor: Colors.black.withOpacity(0.3),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _showSettings,
+      body: SafeArea(
+        child: InAppWebView(
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            userAgent:
+            "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
           ),
-        ],
-      ),
-      body: InAppWebView(
-        initialSettings: InAppWebViewSettings(
-          javaScriptEnabled: true,
-          userAgent:
-              "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
-        ),
-        initialUrlRequest: URLRequest(url: WebUri("https://www.google.com")),
-        onWebViewCreated: (controller) {
-          webViewController = controller;
-        },
-        onLoadStop: (controller, url) async {
-          await controller.evaluateJavascript(
-            source: """
+          initialUrlRequest: URLRequest(
+            url: WebUri("https://www.google.com"),
+          ),
+          onWebViewCreated: (controller) {
+            webViewController = controller;
+          },
+          onLoadStop: (controller, url) async {
+            // 상단 배너 제거
+            await controller.evaluateJavascript(
+              source: """
 document.getElementById('main-banner-view')
-?.style.setProperty('display', 'none', 'important');
+    ?.style.setProperty('display', 'none', 'important');
 """,
-          );
+            );
 
-          if (isDarkMode) {
-            await _applyReaderTheme();
-          }
-        },
+            // 다크모드 적용
+            if (isDarkMode && webViewController != null) {
+              await ReaderTheme.apply(webViewController!);
+            }
+          },
+        ),
+      ),
+
+      // 왼쪽 아래 설정 버튼
+      floatingActionButtonLocation:
+      FloatingActionButtonLocation.startFloat,
+
+      floatingActionButton: FloatingActionButton.small(
+        heroTag: "settings",
+        backgroundColor: Colors.black.withOpacity(0.45),
+        elevation: 0,
+        onPressed: _showSettings,
+        child: const Icon(Icons.settings),
       ),
     );
   }
