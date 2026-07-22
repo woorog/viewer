@@ -10,6 +10,12 @@ import '../services/settings_service.dart';
 
 import '../widgets/settings_sheet.dart';
 
+
+import '../services/update_service.dart';
+import '../widgets/update_dialog.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+
 class BrowserPage extends StatefulWidget {
   final String? initialUrl;
 
@@ -46,6 +52,9 @@ class _BrowserPageState extends State<BrowserPage> {
 
     setState(() {
       _initialized = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkUpdate();
     });
   }
 
@@ -162,6 +171,48 @@ class _BrowserPageState extends State<BrowserPage> {
       },
     );
   }
+
+
+  Future<void> _checkUpdate() async {
+    final package = await PackageInfo.fromPlatform();
+
+    print("현재 버전 : ${package.version}");
+
+    final latest = await UpdateService.getLatestVersion();
+
+    print("최신 버전 : $latest");
+
+    if (!mounted || latest == null) return;
+
+    if (latest != package.version) {
+      print("업데이트 있음");
+
+      showDialog(
+        context: context,
+        builder: (_) => UpdateDialog(
+          currentVersion: package.version,
+          latestVersion: latest,
+          onUpdate: () async {
+            Navigator.pop(context);
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const BrowserPage(
+                  initialUrl:
+                  "https://github.com/woorog/viewer/releases/latest",
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      print("최신 버전");
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
