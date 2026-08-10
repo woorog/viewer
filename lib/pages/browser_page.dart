@@ -213,6 +213,25 @@ class _BrowserPageState extends State<BrowserPage> {
   }
 
 
+  Future<void> _parseCurrentPage(
+      InAppWebViewController controller,
+      WebUri? url,
+      ) async {
+    print("===== 페이지 변경 감지 =====");
+    print("URL: $url");
+
+    final book = await NovelParser.parse(controller, url);
+
+    if (book != null) {
+      await RecentBookService.save(book);
+
+      print("최근 기록 저장 완료");
+      print("작품: ${book.title}");
+      print("회차: ${book.episode}");
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -247,6 +266,36 @@ class _BrowserPageState extends State<BrowserPage> {
 
             onWebViewCreated: (controller) {
               webViewController = controller;
+            },
+
+            // SPA 방식으로 URL만 바뀌는 경우
+            onUpdateVisitedHistory: (controller, url, androidIsReload) async {
+              print("===== URL 변경 감지 =====");
+              print("변경된 URL: $url");
+
+              // 새 회차 DOM이 만들어질 때까지 기다림
+              await controller.evaluateJavascript(
+                source: r'''
+(async () => {
+  for (let i = 0; i < 20; i++) {
+
+    const title = document.querySelector('h1.ne-h1');
+
+    if (title && title.innerText.trim().length > 0) {
+      return true;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+
+  return false;
+})();
+''',
+              );
+
+              if (!mounted) return;
+
+              await _parseCurrentPage(controller, url);
             },
 
             onLoadStop: (controller, url) async {

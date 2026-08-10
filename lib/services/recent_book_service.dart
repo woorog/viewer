@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/recent_book.dart';
 
 class RecentBookService {
-  static const _storageKey = "recent_books";
+  static const String _storageKey = "recent_books";
 
   static List<RecentBook> _books = [];
 
@@ -20,11 +20,20 @@ class RecentBookService {
       return;
     }
 
-    final List list = jsonDecode(json);
+    try {
+      final List<dynamic> list = jsonDecode(json);
 
-    _books = list
-        .map((e) => RecentBook.fromJson(e))
-        .toList();
+      _books = list
+          .map(
+            (e) => RecentBook.fromJson(
+          Map<String, dynamic>.from(e),
+        ),
+      )
+          .toList();
+    } catch (e) {
+      print("RecentBookService load Error: $e");
+      _books = [];
+    }
   }
 
   /// 내부 저장
@@ -40,13 +49,22 @@ class RecentBookService {
 
   /// 최근 본 책 저장
   static Future<void> save(RecentBook book) async {
-    // 같은 작품 제거
-    _books.removeWhere((e) => e.title == book.title);
+    if (book.novelId.isNotEmpty) {
+      _books.removeWhere(
+            (e) =>
+        e.novelId.isNotEmpty &&
+            e.novelId == book.novelId,
+      );
+    } else {
+      _books.removeWhere(
+            (e) =>
+        e.novelId.isEmpty &&
+            e.title == book.title,
+      );
+    }
 
-    // 맨 앞에 추가
     _books.insert(0, book);
 
-    // 최대 30권
     if (_books.length > 30) {
       _books.removeLast();
     }
@@ -54,12 +72,12 @@ class RecentBookService {
     await _saveToStorage();
   }
 
-  /// 목록 가져오기
+  /// 최근 본 책 목록
   static List<RecentBook> getBooks() {
     return List.unmodifiable(_books);
   }
 
-  /// 삭제
+  /// 최근 본 책 전체 삭제
   static Future<void> clear() async {
     _books.clear();
 
