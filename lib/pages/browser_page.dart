@@ -53,9 +53,10 @@ class _BrowserPageState extends State<BrowserPage> {
     setState(() {
       _initialized = true;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkUpdate();
-    });
+    //업데이트 비활성화
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   _checkUpdate();
+    // });
   }
 
   Future<void> _changeDefaultUrl() async {
