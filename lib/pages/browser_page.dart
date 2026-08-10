@@ -250,17 +250,24 @@ class _BrowserPageState extends State<BrowserPage> {
             },
 
             onLoadStop: (controller, url) async {
-              // 상단 배너 제거
               await controller.evaluateJavascript(
-                source: """
-document.getElementById('main-banner-view')
-    ?.style.setProperty('display','none','important');
-""",
+                source: r'''
+(() => {
+  // 메인 배너 제거
+  document.getElementById('main-banner-view')
+    ?.style.setProperty('display', 'none', 'important');
+
+  // data-brs="header"인 section만 제거
+  document
+    .querySelector('section[data-brs="header"]')
+    ?.style.setProperty('display', 'none', 'important');
+})();
+''',
               );
 
-              // 다크모드 적용
-              if (isDarkMode && webViewController != null) {
-                await ReaderTheme.apply(webViewController!);
+              // 다크모드
+              if (isDarkMode) {
+                await ReaderTheme.apply(controller);
               }
 
               // 작품 정보 저장
