@@ -17,6 +17,7 @@ class RecentBooksPage extends StatelessWidget {
       body: books.isEmpty
           ? const Center(
         child: Text(
+
           "최근 본 책이 없습니다.",
           style: TextStyle(fontSize: 16),
         ),
